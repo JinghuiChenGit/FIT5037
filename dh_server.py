@@ -14,10 +14,10 @@ import socketserver
 import sys
 import hashlib
 
-def load_dh_params():
-    with open('./dh_2048_params.bin', 'rb') as f:
-         params = load_pem_parameters(f.read(), default_backend())
-    print('Parameters have been read from file, Server is ready for requests ...')
+def generate_dh_params():
+    print('Generating dh parameters')
+    params = dh.generate_parameters(generator=2, key_size=1024, backend=default_backend())
+    print('Parameters have been generated, Server is ready for requests ...')
     return params
 
 def read_file(filename):
@@ -36,7 +36,7 @@ def check_client_pubkey(pubkey):
 
 class Dh_Handler(socketserver.BaseRequestHandler):
     def __init__(self, request, client_address, server):
-      self.params = load_dh_params()
+      self.params = generate_dh_params()
       self.state = 0
       socketserver.BaseRequestHandler.__init__(self, request, client_address, server)
 
@@ -51,10 +51,10 @@ class Dh_Handler(socketserver.BaseRequestHandler):
           pk = publickey.public_bytes(Encoding.PEM, PublicFormat.SubjectPublicKeyInfo)
           self.request.sendall(pk)
           self.data = self.request.recv(3072).strip()
+          
           password = private_key.decrypt(self.data,pad.OAEP(mgf=pad.MGF1(algorithm=hashes.SHA256()),algorithm=hashes.SHA256(),label=None)) 
           #This is the password
 
-          print(password)
           if password == b'root':
               print('Client connected')
               response = b'Server connected!'
@@ -77,7 +77,7 @@ class Dh_Handler(socketserver.BaseRequestHandler):
           self.request.sendall(response)
           print('Parameters sent')
       else:
-          response = b'I do not understand you, hanging up'
+          response = b'Not understand you, hanging up'
           self.request.sendall(response)
           return
 
@@ -134,7 +134,8 @@ def main():
     print('\n-----------------------------------')
     print('FIT5057 File Transfer System Server')
     print('-----------------------------------')
-    print('\nServer waiting for conection')
+    print('\nFor the first time running the server, please create a /data directory and put files in it')
+    print('Server waiting for conection')   
     host, port = '', 7777
     dh_server = socketserver.TCPServer((host, port), Dh_Handler)
     try:
